@@ -1,6 +1,7 @@
-import 'dart:developer';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart';
 import 'package:web3dart/web3dart.dart';
 
@@ -15,15 +16,10 @@ class CoinPage extends StatefulWidget {
 }
 
 class _CoinPageState extends State<CoinPage> {
-  final String privateKey =
-      '37d53450862207452d5d2cddd688f355d9286b3fa3f911f70cb139b9931bde99';
-  final String rcpUrl =
-      'https://sepolia.infura.io/v3/9a810c8790eb4d93823ebbf0bf807ae7';
-
   // Ganache
-  // final String privateKey =
-  //     '0x8266c590168bd1db02ed0b695ff49b82a831616e0cf0dc14d9e18736d2742e1b';
-  // final String rcpUrl = 'HTTP://127.0.0.1:7545';
+  final String privateKey =
+      '0x15894c3296208e7fdbff3d554b518ba182e45b8801bdb883e1e2b087860f9565';
+  final String rcpUrl = 'HTTP://127.0.0.1:8545';
 
   late Client httpClient;
   late Web3Client web3client;
@@ -50,43 +46,98 @@ class _CoinPageState extends State<CoinPage> {
     setState(() {});
   }
 
-  Future<void> _init() async {
-    httpClient = Client();
-    web3client = Web3Client(rcpUrl, httpClient);
-    credentials = EthPrivateKey.fromHex(privateKey);
-    address = credentials.address;
+  /// Loads a contract from the ABI (Application Binary Interface) and returns a DeployedContract instance.
+  ///
+  /// This function loads the contract ABI from the 'abi.json' file located in the 'assets' directory.
+  /// It creates a DeployedContract object using the loaded ABI and the contract address.
+  ///
+  /// Returns:
+  /// A [Future] that resolves to a [DeployedContract] instance representing the contract.
+  Future<DeployedContract> loadContract() async {
+    final abi = await rootBundle.loadString('assets/abi.json');
+    const contractAddress = '0x31C35074bf8C0A339b7e868dbba6eD6C353AC5CA';
 
-    log(address.hexEip55);
+    final contract = DeployedContract(
+      ContractAbi.fromJson(abi, 'AkioKoin'),
+      EthereumAddress.fromHex(contractAddress),
+    );
+
+    return contract;
   }
 
+  /// Sends a query to a contract function and returns the result as a list of dynamic values.
+  ///
+  /// Parameters:
+  /// - [fnName]: The name of the contract function to query.
+  /// - [params]: The list of parameters to pass to the contract function.
+  ///
+  /// Returns:
+  /// A [Future] that resolves to a list of dynamic values representing the result of the contract function call.
+  Future<List<dynamic>> _query(String fnName, List<dynamic> params) async {
+    final contract = await loadContract();
+    final contractFn = contract.function(fnName);
+
+    final result = await web3client.call(
+      contract: contract,
+      function: contractFn,
+      params: params,
+    );
+
+    return result;
+  }
+
+  /// Retrieves the account balance for the specified address and updates the local balance state variable.
+  ///
+  /// This function sends a query to the contract's 'balanceOf' function with the given [address] as a parameter.
+  /// The returned balance value is extracted from the query result list and stored in the [_balance] variable.
+  /// The balance is converted from Wei to Ether by dividing it by the decimal factor of 10^18 and then converted to a double.
+  /// Finally, the widget's state is updated using [setState].
+  ///
+  /// Note: This function assumes that the 'balanceOf' function in the contract returns a single balance value as the first element of the result list.
   Future<void> _getBalance() async {
-    final weiBalance = await web3client.getBalance(address);
-    final ethBalance = weiBalance.getValueInUnit(EtherUnit.ether);
-    _balance = ethBalance;
+    final List<dynamic> result = await _query('balanceOf', [address]);
+    _balance = (result[0] ~/ BigInt.from(pow(10, 18))).toDouble();
     setState(() {});
   }
 
-  Future<void> _sendTransaction(String to, double amount) async {
+  /// Sends a transaction to transfer a specified value to a given recipient address.
+  ///
+  /// This function sends a transaction to the blockchain to invoke the 'transfer' function of the deployed contract.
+  /// The transaction transfers the specified [value] to the recipient address [to].
+  /// The transaction is signed using the provided [credentials] and sent with the corresponding [chainId].
+  ///
+  /// Parameters:
+  /// - [to]: The recipient address to transfer the value to.
+  /// - [value]: The value to transfer.
+  ///
+  /// Returns:
+  /// A [Future] that resolves to a transaction hash representing the transaction on the blockchain.
+  Future<String> _sendTransaction(String to, BigInt value) async {
     final chainId = await web3client.getChainId();
+    final contract = await loadContract();
+    final function = contract.function('transfer');
 
     final transactionHash = await web3client.sendTransaction(
       credentials,
-      Transaction(
-        to: EthereumAddress.fromHex(to),
-        value: EtherAmount.fromInt(
-          EtherUnit.finney,
-          (amount * 1000).toInt(),
-        ),
+      Transaction.callContract(
+        contract: contract,
+        function: function,
+        parameters: [EthereumAddress.fromHex(to), value],
       ),
       chainId: chainId.toInt(),
     );
-    log('hash: $transactionHash');
+
+    return transactionHash;
   }
 
   @override
   void initState() {
     super.initState();
-    _init();
+    web3client = Web3Client(rcpUrl, Client());
+    credentials = EthPrivateKey.fromHex(privateKey);
+    address = credentials.address;
+
+    print(address.hexEip55);
   }
 
   @override
@@ -101,8 +152,12 @@ class _CoinPageState extends State<CoinPage> {
             onRefresh: _getBalance,
           ),
           Transfer(
-            onSendTransaction: (TransactionData data) {
-              _sendTransaction(data.to, data.amount);
+            onSendTransaction: (TransactionData data) async {
+              final hash = await _sendTransaction(
+                data.to,
+                BigInt.from(data.amount * pow(10, 18)),
+              );
+              print(hash);
             },
           ),
         ],

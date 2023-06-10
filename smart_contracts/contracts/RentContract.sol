@@ -27,6 +27,8 @@ contract RentContract {
     }
 
     function mudarParte(string memory _nome, uint8 _parte) public {
+        require(_parte == 1 || _parte == 2, "Parte invalida");
+
         if (_parte == 1) {
             locador = _nome;
         } else if (_parte == 2) {
@@ -35,7 +37,9 @@ contract RentContract {
     }
 
     function atualizarProximosAlugueis(uint8 _mesAtual, uint256 _valorAumento) public {
-        for(uint i = _mesAtual; i < totalMeses; i++) {
+        require(_mesAtual <= 36, "Mes invalido");
+
+        for(uint i = (_mesAtual - 1); i < totalMeses; i++) {
             alugueis[i] = alugueis[i] + _valorAumento;
         }
     }

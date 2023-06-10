@@ -31,9 +31,9 @@ contract RentContract {
         }
     }
 
-    function atualizarProximosAlugueis(uint8 _mesAtual, uint256 _valor) public {
+    function atualizarProximosAlugueis(uint8 _mesAtual, uint256 _valorAumento) public {
         for(uint i = _mesAtual; i < 36; i++) {
-            alugueis[i] = _valor;
+            alugueis[i] = alugueis[i] + _valorAumento;
         }
     }
 }

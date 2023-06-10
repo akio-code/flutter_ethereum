@@ -1,0 +1,8 @@
+{
+  "dependencies": {
+    "@openzeppelin/contracts": "^4.9.1"
+  },
+  "scripts": {
+    "open-zeppelin": "openzeppelin --version"
+  }
+}

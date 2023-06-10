@@ -37,9 +37,18 @@ class _BalanceState extends State<Balance> {
             style: Theme.of(context).textTheme.titleMedium,
           ),
           const SizedBox(height: 24),
-          Text(
-            '\$${numberFormat.format(widget.balance)}',
-            style: Theme.of(context).textTheme.displayLarge,
+          Row(
+            children: [
+              Text(
+                'akc',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(width: 24),
+              SelectableText(
+                '${widget.balance}',
+                style: Theme.of(context).textTheme.displayLarge,
+              ),
+            ],
           ),
         ],
       ),

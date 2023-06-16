@@ -1,8 +1,10 @@
 {
   "dependencies": {
-    "@openzeppelin/contracts": "^4.9.1"
+    "@openzeppelin/contracts": "^4.9.1",
+    "solmate": "^6.1.0"
   },
   "scripts": {
-    "open-zeppelin": "openzeppelin --version"
+    "compile": "truffle compile",
+    "migrate": "truffle migrate"
   }
 }
